@@ -1,0 +1,15 @@
+{
+  "name": "Kabaddi Score Pro",
+  "short_name": "ScorePro",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#f97316",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/861/861512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

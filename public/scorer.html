@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scorer Control - Kabaddi Score Pro</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Kabaddi Score Pro</h1>
+      <p style="color: var(--text-muted); font-size: 0.85rem;">स्कोरर कंट्रोल पैनल</p>
+    </header>
+
+    <!-- नया मैच बनाने का फॉर्म -->
+    <div class="card" id="create-match-box">
+      <h3 style="margin-bottom: 10px;">नया मैच शुरू करें</h3>
+      <input type="text" id="teamA-input" placeholder="टीम A का नाम" style="width: 100%; padding: 10px; margin-bottom: 8px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: white;">
+      <input type="text" id="teamB-input" placeholder="टीम B का नाम" style="width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: white;">
+      <button class="btn-primary" style="width: 100%;" onclick="createMatch()">मैच बनाएँ और शुरू करें</button>
+    </div>
+
+    <!-- लाइव स्कोरिंग बोर्ड -->
+    <div class="card" id="scoring-box" style="display: none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <span class="badge badge-live">लाइव मैच</span>
+        <span id="draid-badge" class="badge badge-draid" style="display: none;">DO-OR-DIE RAID</span>
+      </div>
+
+      <div class="scoreboard">
+        <div class="team-box">
+          <div class="team-name team-a-color" id="teamA-name">Team A</div>
+          <div class="score-big" id="scoreA">0</div>
+          <div class="players-active">मैट पर: <b id="activeA">7</b>/7</div>
+        </div>
+        <div class="vs">:</div>
+        <div class="team-box">
+          <div class="team-name team-b-color" id="teamB-name">Team B</div>
+          <div class="score-big" id="scoreB">0</div>
+          <div class="players-active">मैट पर: <b id="activeB">7</b>/7</div>
+        </div>
+      </div>
+
+      <div style="text-align: center; margin: 16px 0; padding: 8px; background: #263349; border-radius: 8px;">
+        रेडर टीम: <strong id="raidingTeamName" style="color: var(--accent);">Team A</strong>
+      </div>
+
+      <!-- रेड पॉइंट्स सेलेक्टर -->
+      <label style="font-size: 0.85rem; color: var(--text-muted);">टच पॉइंट्स दर्ज करें:</label>
+      <div class="raid-options">
+        <button type="button" class="btn-touch active" onclick="setTouch(0)">0</button>
+        <button type="button" class="btn-touch" onclick="setTouch(1)">1</button>
+        <button type="button" class="btn-touch" onclick="setTouch(2)">2</button>
+        <button type="button" class="btn-touch" onclick="setTouch(3)">3</button>
+        <button type="button" class="btn-touch" onclick="setTouch(4)">4+</button>
+      </div>
+
+      <div class="bonus-toggle">
+        <input type="checkbox" id="bonus-check">
+        <label for="bonus-check">बोनस पॉइंट (+1) <span id="bonus-info" style="color: var(--text-muted); font-size: 0.75rem;">(डिफेंडर 6 या 7 होने पर ही मान्य)</span></label>
+      </div>
+
+      <div class="btn-grid">
+        <button class="btn-success" onclick="submitAction('raid_points')">रेड पॉइंट जोड़ें</button>
+        <button class="btn-danger" id="btn-tackle" onclick="submitAction('tackle')">टैकल आउट (+1)</button>
+        <button onclick="submitAction('empty')">खाली रेड (Empty)</button>
+        <button class="btn-undo" onclick="undoLastAction()">↩️ Undo पिछला एक्शन</button>
+      </div>
+    </div>
+
+    <a href="index.html" class="nav-link">दर्शकों वाला लाइव स्कोरबोर्ड देखें &rarr;</a>
+  </div>
+
+  <script>
+    let currentMatchId = null;
+    let selectedTouch = 0;
+
+    function setTouch(pts) {
+      selectedTouch = pts;
+      document.querySelectorAll('.btn-touch').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+    }
+
+    async function createMatch() {
+      const team_a = document.getElementById('teamA-input').value.trim() || "Team A";
+      const team_b = document.getElementById('teamB-input').value.trim() || "Team B";
+
+      const res = await fetch('/api/matches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ team_a, team_b })
+      });
+      const data = await res.json();
+      if(data.match_id) {
+        currentMatchId = data.match_id;
+        document.getElementById('create-match-box').style.display = 'none';
+        document.getElementById('scoring-box').style.display = 'block';
+        loadMatchData();
+      }
+    }
+
+    async function loadMatchData() {
+      if (!currentMatchId) return;
+      const res = await fetch('/api/matches');
+      const matches = await res.json();
+      const match = matches.find(m => m.id === currentMatchId);
+      if (!match) return;
+
+      document.getElementById('teamA-name').innerText = match.team_a;
+      document.getElementById('teamB-name').innerText = match.team_b;
+      document.getElementById('scoreA').innerText = match.score_a;
+      document.getElementById('scoreB').innerText = match.score_b;
+      document.getElementById('activeA').innerText = match.active_a;
+      document.getElementById('activeB').innerText = match.active_b;
+
+      const isA = match.raiding_team === 'A';
+      document.getElementById('raidingTeamName').innerText = isA ? match.team_a : match.team_b;
+      document.getElementById('draid-badge').style.display = match.is_draid ? 'inline-block' : 'none';
+
+      // सुपर टैकल लेबल अपडेट
+      const defenders = isA ? match.active_b : match.active_a;
+      const btnTackle = document.getElementById('btn-tackle');
+      if (defenders <= 3) {
+        btnTackle.innerText = "सुपर टैकल (+2)";
+        btnTackle.style.background = "#9333ea";
+      } else {
+        btnTackle.innerText = "टैकल आउट (+1)";
+        btnTackle.style.background = "var(--danger)";
+      }
+
+      // बोनस चेकबॉक्स स्थिति
+      const bonusCheck = document.getElementById('bonus-check');
+      if (defenders < 6) {
+        bonusCheck.checked = false;
+        bonusCheck.disabled = true;
+        document.getElementById('bonus-info').innerText = "(डिफेंडर कम हैं, बोनस बंद)";
+      } else {
+        bonusCheck.disabled = false;
+        document.getElementById('bonus-info').innerText = "(6 या 7 डिफेंडर हैं, बोनस उपलब्ध)";
+      }
+    }
+
+    async function submitAction(action) {
+      if (!currentMatchId) return;
+      const bonus = document.getElementById('bonus-check').checked;
+
+      await fetch('/api/score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          match_id: currentMatchId,
+          action: action,
+          touch_points: selectedTouch,
+          bonus: bonus
+        })
+      });
+
+      // रीसेट सेलेक्शन
+      setTouch(0);
+      document.getElementById('bonus-check').checked = false;
+      loadMatchData();
+    }
+
+    async function undoLastAction() {
+      if (!currentMatchId) return;
+      await fetch('/api/undo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ match_id: currentMatchId })
+      });
+      loadMatchData();
+    }
+  </script>
+</body>
+</html>

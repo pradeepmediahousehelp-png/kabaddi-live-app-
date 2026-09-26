@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live - Kabaddi Score Pro</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Kabaddi Score Pro</h1>
+      <span class="badge badge-live">लाइव स्कोर बोर्ड</span>
+    </header>
+
+    <div id="matches-list">
+      <p style="text-align:center; color: var(--text-muted);">लाइव मैच लोड हो रहे हैं...</p>
+    </div>
+
+    <a href="scorer.html" class="nav-link">स्कोरर लॉगिन / मैच कंट्रोल &rarr;</a>
+  </div>
+
+  <script>
+    async function fetchLiveScores() {
+      try {
+        const res = await fetch('/api/matches');
+        const matches = await res.json();
+        const container = document.getElementById('matches-list');
+
+        if (!matches || matches.length === 0) {
+          container.innerHTML = '<div class="card" style="text-align:center;">अभी कोई लाइव मैच नहीं चल रहा है।</div>';
+          return;
+        }
+
+        container.innerHTML = matches.map(m => {
+          const isA = m.raiding_team === 'A';
+          const raider = isA ? m.team_a : m.team_b;
+          return `
+            <div class="card">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 0.8rem; color: var(--text-muted);">ID: ${m.id}</span>
+                ${m.is_draid ? '<span class="badge badge-draid">DO-OR-DIE RAID</span>' : ''}
+              </div>
+              <div class="scoreboard">
+                <div class="team-box">
+                  <div class="team-name team-a-color">${m.team_a}</div>
+                  <div class="score-big">${m.score_a}</div>
+                  <div class="players-active">मैट पर: <b>${m.active_a}</b>/7</div>
+                </div>
+                <div class="vs">:</div>
+                <div class="team-box">
+                  <div class="team-name team-b-color">${m.team_b}</div>
+                  <div class="score-big">${m.score_b}</div>
+                  <div class="players-active">मैट पर: <b>${m.active_b}</b>/7</div>
+                </div>
+              </div>
+              <div style="margin-top: 14px; text-align: center; font-size: 0.9rem; background: #0f172a; padding: 6px; border-radius: 6px;">
+                👉 वर्तमान रेड: <b style="color: var(--accent);">${raider}</b>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error("Live fetch error", err);
+      }
+    }
+
+    // पहला लोड और फिर हर 3 सेकंड में ऑटो अपडेट
+    fetchLiveScores();
+    setInterval(fetchLiveScores, 3000);
+  </script>
+</body>
+</html>
